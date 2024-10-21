@@ -1,0 +1,16 @@
+const mongoose = require("mongoose");
+
+
+const Blogs = new mongoose.Schema({
+    title: {
+        type: String,
+        required: true
+    },
+    content: String,
+    author: String
+
+})
+
+const Blog = mongoose.model("Blogs", Blogs)
+
+module.exports = Blog;
