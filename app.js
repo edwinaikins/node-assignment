@@ -1,7 +1,11 @@
 const express = require('express');
 require('dotenv').config();
 const Blog = require("./models/blogs");
+const User = require("./models/users");
 const mongoose = require("mongoose")
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+
 
 const databaseConnect = async () =>{
     try{
@@ -104,4 +108,62 @@ app.delete("/posts/:id", (req,res)=>{
         })
         
     
+})
+
+app.post("/register", async (req, res) =>{
+    const { username, password} = req.body;
+    const saltRounds = 10;
+    const hashPassword = await bcrypt.hash(password,saltRounds)
+    try{
+       await User.create({username,password: hashPassword});
+       res.send("User registered successfully")
+    }
+    catch(error){
+        console.log(error)
+        res.status(500).send("Error creating user")
+    }
+})
+
+app.post("/login", async(req, res) =>{
+    const {username, password} = req.body;
+    try{
+        const user = await User.findOne({username:req.body.username})
+        if(!user){
+           return res.status(404).send("User not found")
+        }
+        const isMatch = await bcrypt.compare(password, user.password)
+        if(!isMatch){
+            return res.status(401).send("password mismatch")
+        }
+        const token = jwt.sign({id:user._id}, process.env.JWT_SECRET, {expiresIn:"1h"})
+        res.send({token})
+    }
+   catch(error){
+    console.log(error);
+    res.status(500).send(error)
+   }
+
+})
+
+
+const authenicateToken = (req, res, next) => {
+    const authHeader = req.headers["authorization"]
+    console.log(authHeader)
+    const token = authHeader && authHeader.split(" ")[1];
+    console.log(token)
+    if(!token){
+        return res.send("Invalid tokeeen")
+    }
+    jwt.verify(token, process.env.JWT_SECRET, (err,user) =>{
+        if(err){
+            return res.send("Invalid token")
+        }
+        console.log(user)
+        req.user = user
+        next()
+    })
+}
+
+app.get("/protected", authenicateToken, (req, res) =>{
+    res.status(200).send({msg:"success", user: req.user})
 })
